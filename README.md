@@ -124,3 +124,22 @@ The repository structure reflects separation of concerns:
 - Kubernetes manifests are maintained independently of application logic.
 - CI/CD automation is version-controlled alongside the application.
 - Monitoring configuration is modular and extensible.
+
+## 5. Prerequisites
+
+Before running this project, ensure the following tools are installed:
+
+### Required Software
+
+- Java 17 or later
+- Maven 3.9+
+- Docker
+- Docker Compose
+- Git
+- kubectl (Kubernetes CLI)
+- Kind (Kubernetes in Docker)
+
+### Recommended Environment
+
+- Ubuntu 22.04+ (or compatible Linux distribution)
+- Minimum 8GB RAM for Kubernetes and monitoring stack

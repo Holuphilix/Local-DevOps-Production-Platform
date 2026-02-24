@@ -143,3 +143,45 @@ Before running this project, ensure the following tools are installed:
 
 - Ubuntu 22.04+ (or compatible Linux distribution)
 - Minimum 8GB RAM for Kubernetes and monitoring stack
+
+## 6. Application Design
+
+### 6.1 Domain Model
+
+The core domain entity of the platform is the **Payment**.
+
+A payment represents a financial transaction request initiated by a merchant system and processed by the payment service.
+
+#### Payment Entity
+
+| Field | Type | Description |
+|-------|------|------------|
+| id | UUID | Unique identifier for the payment |
+| amount | BigDecimal | Monetary value of the transaction |
+| currency | String | ISO currency code (e.g., USD, EUR) |
+| reference | String | External reference provided by merchant |
+| customerId | String | Identifier of the customer initiating the payment |
+| status | PaymentStatus (Enum) | Current lifecycle state of the payment |
+| createdAt | Timestamp | Time the payment was created |
+| updatedAt | Timestamp | Time the payment was last updated |
+
+#### PaymentStatus Enum
+
+The payment lifecycle is controlled using a strongly typed enumeration:
+
+- PENDING  
+- PROCESSING  
+- SUCCESS  
+- FAILED  
+
+#### PaymentStatusHistory Entity
+
+To ensure traceability and auditability, every status transition is recorded in a separate entity.
+
+| Field | Type | Description |
+|-------|------|------------|
+| id | UUID | Unique identifier for the history record |
+| paymentId | UUID | Foreign key referencing Payment |
+| oldStatus | PaymentStatus | Previous status |
+| newStatus | PaymentStatus | Updated status |
+| changedAt | Timestamp | Time of status transition |

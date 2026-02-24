@@ -215,3 +215,24 @@ The relational schema is designed to enforce data integrity and maintain normali
 - Foreign key constraints ensure referential integrity.
 - Status transitions are stored as immutable historical records.
 
+### 6.3 Payment Lifecycle
+
+The payment lifecycle represents the state transitions a payment undergoes from creation to final outcome.
+
+#### Lifecycle Flow
+
+1. A merchant system sends a payment request.
+2. The payment is created with status `PENDING`.
+3. Business validation is performed.
+4. If valid, status transitions to `PROCESSING`.
+5. Payment processing is simulated.
+6. Final status is set to either `SUCCESS` or `FAILED`.
+7. Each transition is recorded in the `payment_status_history` table.
+
+### State Transition Rules
+
+- `PENDING` → `PROCESSING`
+- `PROCESSING` → `SUCCESS`
+- `PROCESSING` → `FAILED`
+
+Invalid transitions are not permitted.

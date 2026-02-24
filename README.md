@@ -185,3 +185,33 @@ To ensure traceability and auditability, every status transition is recorded in 
 | oldStatus | PaymentStatus | Previous status |
 | newStatus | PaymentStatus | Updated status |
 | changedAt | Timestamp | Time of status transition |
+
+### 6.2 Database Schema
+
+The relational schema is designed to enforce data integrity and maintain normalized structure.
+
+#### payments Table
+
+- id (UUID, Primary Key)
+- amount (DECIMAL)
+- currency (VARCHAR)
+- reference (VARCHAR)
+- customer_id (VARCHAR)
+- status (VARCHAR)
+- created_at (TIMESTAMP)
+- updated_at (TIMESTAMP)
+
+#### payment_status_history Table
+
+- id (UUID, Primary Key)
+- payment_id (UUID, Foreign Key referencing payments.id)
+- old_status (VARCHAR)
+- new_status (VARCHAR)
+- changed_at (TIMESTAMP)
+.
+### Relationship Design
+
+- One Payment can have many PaymentStatusHistory records.
+- Foreign key constraints ensure referential integrity.
+- Status transitions are stored as immutable historical records.
+

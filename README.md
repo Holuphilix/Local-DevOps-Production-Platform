@@ -236,3 +236,52 @@ The payment lifecycle represents the state transitions a payment undergoes from 
 - `PROCESSING` → `FAILED`
 
 Invalid transitions are not permitted.
+
+### 6.4 API Contract
+
+The payment service exposes RESTful endpoints for interaction with external systems.
+
+#### Create Payment
+
+`POST /payments`
+
+Creates a new payment and initializes its lifecycle.
+
+**Request Body**
+
+```json
+{
+  "amount": 100.50,
+  "currency": "USD",
+  "reference": "ORDER-12345",
+  "customerId": "CUST-001"
+}
+```
+
+**Response**
+
+* 201 Created
+* Returns payment details including generated ID and current status.
+
+#### Get Payment By ID
+
+`GET /payments/{id}`
+
+Retrieves payment details by unique identifier.
+
+**Response**
+
+* 200 OK (if found)
+* 404 Not Found (if payment does not exist)
+
+#### Get Payment Status History
+
+`GET /payments/{id}/history`
+
+Retrieves all status transitions associated with a payment.
+
+#### Health Check
+
+`GET /health`
+
+Confirms application availability.

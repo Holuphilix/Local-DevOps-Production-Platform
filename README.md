@@ -90,3 +90,37 @@ The platform leverages modern backend and DevOps technologies to simulate a prod
 
 ### Testing
 - **JUnit & Mockito** – Unit and integration testing.
+
+## 4. Repository Structure
+
+The project is structured as a single monorepo containing application code, infrastructure configuration, and operational tooling.
+
+
+```
+Local-DevOps-Production-Platform/
+│
+├── app/                     # Spring Boot application source code
+│
+├── docker/                  # Docker and Docker Compose configuration
+│
+├── k8s/                     # Kubernetes manifests (Kind deployment)
+│
+├── monitoring/              # Prometheus and Grafana configuration
+│
+├── .github/
+│   └── workflows/           # CI/CD pipelines (GitHub Actions)
+│
+├── docs/                    # Architecture diagrams and supporting documentation
+│
+└── README.md                # Project documentation
+```
+
+### Structure Philosophy
+
+The repository structure reflects separation of concerns:
+
+- Application logic is isolated under `app/`.
+- Container and runtime configuration are separated from source code.
+- Kubernetes manifests are maintained independently of application logic.
+- CI/CD automation is version-controlled alongside the application.
+- Monitoring configuration is modular and extensible.

@@ -285,3 +285,22 @@ Retrieves all status transitions associated with a payment.
 `GET /health`
 
 Confirms application availability.
+
+### 6.5 Design Decisions
+
+Several architectural decisions were made to reflect production-grade system design:
+
+- **UUID as Primary Key**  
+  Ensures global uniqueness and avoids predictable sequential identifiers.
+
+- **Separate Status History Table**  
+  Maintains auditability and preserves normalized relational structure.
+
+- **PostgreSQL as Database**  
+  Provides ACID compliance, relational integrity, and structured schema enforcement suitable for financial systems.
+
+- **Immutable Payment Records**  
+  Payments are not deleted to preserve audit trails and financial reporting integrity.
+
+- **Explicit State Transition Rules**  
+  Enforces lifecycle integrity and prevents invalid status changes.

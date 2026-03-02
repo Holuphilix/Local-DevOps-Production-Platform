@@ -299,7 +299,9 @@ Invalid transitions are not permitted and are enforced in the Service layer.
 
 ### 6.4 API Contract
 
-The payment service exposes REST endpoints for interaction.
+The payment service exposes RESTful endpoints for interaction with external systems.
+
+The API follows standard JSON-based request and response patterns typical of production-grade backend services.
 
 #### Create Payment
 
@@ -307,26 +309,61 @@ The payment service exposes REST endpoints for interaction.
 
 Creates a new payment and initiates lifecycle processing.
 
-#### Request (Query Parameters)
+#### Request (JSON Body)
 
+```http
+POST /payments
+Content-Type: application/json
 ```
-POST /payments?amount=100&currency=USD&reference=ORDER1&customerId=CUST1
+
+```json
+{
+  "amount": 100,
+  "currency": "USD",
+  "reference": "ORDER-12345",
+  "customerId": "CUST-001"
+}
 ```
+
+#### Request Fields
+
+| Field      | Type       | Description                           |
+| ---------- | ---------- | ------------------------------------- |
+| amount     | BigDecimal | Transaction monetary value            |
+| currency   | String     | ISO currency code                     |
+| reference  | String     | Merchant-provided reference           |
+| customerId | String     | Identifier of the initiating customer |
+
+> The request payload is mapped to a dedicated DTO (`CreatePaymentRequest`) to decouple the API contract from the persistence entity.
 
 #### Response
+
+**200 OK**
 
 ```json
 {
   "id": "UUID",
   "amount": 100,
   "currency": "USD",
-  "reference": "ORDER1",
-  "customerId": "CUST1",
+  "reference": "ORDER-12345",
+  "customerId": "CUST-001",
   "status": "SUCCESS",
-  "createdAt": "...",
-  "updatedAt": "..."
+  "createdAt": "2026-03-02T19:40:11.712588674",
+  "updatedAt": "2026-03-02T19:40:11.805804354"
 }
 ```
+
+#### Lifecycle Behavior
+
+Upon receiving a valid request:
+
+1. A payment is created with status `PENDING`.
+2. The payment transitions to `PROCESSING`.
+3. Based on business rules, it transitions to either:
+
+   * `SUCCESS`
+   * `FAILED`
+4. Each transition is recorded in `payment_status_history`.
 
 #### Health Check
 
@@ -369,23 +406,22 @@ Lifecycle changes are recorded via state transitions rather than record mutation
 
 This ensures development flexibility while preserving production realism.
 
-
 ## 7. Local Development Setup
 
 This section describes how the application is built, executed, and validated locally before introducing containerized infrastructure.
 
-The goal of this stage is to verify:
+The purpose of this stage is to validate:
 
 * Application compilation
 * Dependency resolution
-* JPA configuration
+* JPA auto-configuration
 * Entity mapping
-* Repository wiring
-* Service-layer lifecycle logic
+* Repository initialization
+* Service-layer lifecycle enforcement
 * Database persistence
-* Health monitoring
+* Health monitoring endpoints
 
-This ensures the system is functionally correct before Dockerization.
+This ensures the application is functionally stable before Dockerization.
 
 ### 7.1 Initialize Spring Boot Application
 
@@ -407,11 +443,11 @@ The Spring Boot application was generated using Spring Initializr and placed ins
 * Lombok
 * Spring Boot Starter Test
 
-> Note: H2 is used temporarily for local development. PostgreSQL will be introduced in the Docker Compose stage.
+> H2 is used for local development validation. PostgreSQL will be introduced in the Docker Compose stage to simulate a production-grade database environment.
 
 ### 7.2 H2 Local Database Configuration
 
-To enable local persistence without external infrastructure, an in-memory H2 database is configured.
+To enable local persistence without requiring external infrastructure, an in-memory H2 database is configured.
 
 #### application.properties
 
@@ -430,15 +466,15 @@ spring.h2.console.enabled=true
 
 #### Why H2 Is Used
 
-* Enables JPA auto-configuration
-* Allows repository initialization
-* Supports schema auto-generation
-* Eliminates external database dependency
-* Speeds up local iteration
+* Enables automatic JPA configuration
+* Allows repository beans to initialize
+* Automatically generates schema from entities
+* Removes dependency on external database setup
+* Speeds up local development cycles
 
-This approach follows incremental development principles.
+This follows incremental development principles.
 
-### 7.3 Build the Application
+#### 7.3 Build the Application
 
 Navigate to the application directory:
 
@@ -456,8 +492,8 @@ This step:
 
 * Compiles source code
 * Validates entity mappings
-* Verifies dependency resolution
-* Generates executable JAR
+* Ensures dependency resolution
+* Produces an executable JAR
 
 Expected output:
 
@@ -465,7 +501,7 @@ Expected output:
 BUILD SUCCESS
 ```
 
-### 7.4 Run the Application
+#### 7.4 Run the Application
 
 Start the application:
 
@@ -483,15 +519,15 @@ Started PaymentServiceApplication
 This confirms:
 
 * Embedded Tomcat initialized
-* Application context loaded
+* Application context loaded successfully
 * JPA repositories registered
-* H2 datasource configured
+* H2 datasource configured properly
 
-![spring-boot:run](./docs/Images/1.Spring_boot_run.png)
+![spring-boot](./docs/Images/1.Spring_boot_run.png)
 
 ### 7.5 Actuator Health Verification
 
-Spring Boot Actuator is enabled for monitoring.
+Spring Boot Actuator is enabled for runtime monitoring.
 
 Verify application health:
 
@@ -509,52 +545,58 @@ Expected response:
 
 This confirms:
 
-* Application is responsive
-* Health endpoint is exposed
-* Monitoring subsystem is operational
+* The application is responsive
+* Monitoring endpoints are active
+* Application context is fully initialized
 
 ![Health Verification](./docs/Images/2.health_check.png)
 
 ### 7.6 Payment Lifecycle Validation
 
-To validate service-layer business logic, a test payment is created.
+To validate the service-layer business logic and lifecycle enforcement, a test payment is created using a JSON request body.
 
-#### Create Payment
+#### Create Payment (JSON Request)
 
 ```bash
-curl -X POST "http://localhost:8080/payments?amount=100&currency=USD&reference=ORDER1&customerId=CUST1"
+curl -X POST http://localhost:8080/payments \
+-H "Content-Type: application/json" \
+-d '{"amount":100,"currency":"USD","reference":"ORDER-LOCAL-1","customerId":"CUST-LOCAL-1"}'
 ```
 
-Expected response:
+#### Expected Response
 
 ```json
 {
   "id": "UUID",
   "amount": 100,
   "currency": "USD",
-  "reference": "ORDER1",
-  "customerId": "CUST1",
+  "reference": "ORDER-LOCAL-1",
+  "customerId": "CUST-LOCAL-1",
   "status": "SUCCESS",
   "createdAt": "...",
   "updatedAt": "..."
 }
 ```
 
-#### Lifecycle Behavior
-
-The service layer performs:
-
-1. Payment created with `PENDING`
-2. Transition to `PROCESSING`
-3. Final transition to `SUCCESS` (if amount > 0)
-
-Each transition is recorded in `payment_status_history`.
-
 ![Payment created](./docs/Images/3.Create%20Payment.png)
 
-## 7.7 Database Verification Using H2 Console
+#### Lifecycle Behavior
 
-Access H2 console:
+When the request is processed:
+
+1. A Payment entity is created with status `PENDING`
+2. The service transitions the payment to `PROCESSING`
+3. Based on validation rules:
+
+   * If amount > 0 → status becomes `SUCCESS`
+   * Otherwise → status becomes `FAILED`
+4. Each transition is recorded in `payment_status_history`
+
+This confirms correct service-layer lifecycle enforcement.
+
+### 7.7 Database Verification Using H2 Console
+
+Access the H2 console:
 
 ```
 http://localhost:8080/h2-console
@@ -577,7 +619,7 @@ SELECT * FROM PAYMENTS;
 #### Verify Status History
 
 ```sql
-SELECT old_status, new_status, changed_at 
+SELECT old_status, new_status, changed_at
 FROM PAYMENT_STATUS_HISTORY;
 ```
 
@@ -589,25 +631,27 @@ Expected result:
   * PENDING → PROCESSING
   * PROCESSING → SUCCESS
 
-![PAYMENT_STATUS_HISTORY](./docs/Images/5.PAYMENT_STATUS_HISTORY.png)
+![PAYMENT\_STATUS\_HISTORY](./docs/Images/5.PAYMENT_STATUS_HISTORY.png)
 
 This confirms:
 
-* One-to-many relationship works
-* UUID mapping functions correctly
-* Service transition logic executes properly
-* Audit trail is preserved
+* One-to-many relationship integrity
+* UUID primary key generation
+* Proper foreign key mapping
+* Service transition logic execution
+* Audit trail preservation
 
 ### 7.8 Development Validation Summary
 
-At the end of local setup, the system is verified to support:
+At the conclusion of local validation, the system supports:
 
-* REST API interaction
-* Domain-driven lifecycle logic
-* Persistent storage
+* REST API interaction via JSON request body
+* Layered architecture (Controller → Service → Repository)
+* Automatic schema generation via JPA
+* In-memory database persistence
+* Lifecycle transition enforcement
 * Audit history tracking
-* Health monitoring
-* Clean layered architecture
+* Runtime health monitoring
 
-This completes local functional validation before containerization.
+This completes functional validation prior to containerization.
 

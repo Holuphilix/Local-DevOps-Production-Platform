@@ -578,8 +578,6 @@ curl -X POST http://localhost:8080/payments \
 }
 ```
 
-![Payment created](./docs/Images/3.Create%20Payment.png)
-
 #### Lifecycle Behavior
 
 When the request is processed:
@@ -655,3 +653,281 @@ At the conclusion of local validation, the system supports:
 
 This completes functional validation prior to containerization.
 
+## 8. Dockerization and Containerized Database
+
+After validating the application locally using an in-memory H2 database, the next step is to package the service into containers and introduce a production-style database environment.
+
+This stage introduces:
+
+- Application containerization
+- PostgreSQL containerized database
+- Docker networking
+- Persistent database storage
+- Environment-based configuration
+- Multi-container orchestration using Docker Compose
+
+This simulates how modern backend systems are deployed in production environments.
+
+### 8.1 Application Containerization
+
+The Spring Boot application is containerized using Docker to ensure consistent execution across different environments.
+
+A **multi-stage build** is used to optimize the final image size.
+
+#### Dockerfile Location
+
+```
+app/payment-service/Dockerfile
+```
+
+#### Dockerfile
+
+```dockerfile
+FROM maven:3.9.9-eclipse-temurin-17 AS builder
+
+WORKDIR /build
+
+COPY pom.xml .
+COPY src ./src
+
+RUN mvn clean package -DskipTests
+
+FROM eclipse-temurin:17-jdk
+
+WORKDIR /app
+
+COPY --from=builder /build/target/payment-service-0.0.1-SNAPSHOT.jar app.jar
+
+EXPOSE 8080
+
+ENTRYPOINT ["java","-jar","app.jar"]
+```
+
+#### Why Multi-Stage Build Is Used
+
+Multi-stage builds separate the **build environment** from the **runtime environment**.
+
+Benefits include:
+
+- Smaller final image size
+- Improved security
+- Reduced attack surface
+- Faster container startup
+
+### 8.2 Docker Compose Architecture
+
+Docker Compose is used to orchestrate multiple containers required for the platform.
+
+The system consists of two services:
+
+1. **payment-service** — Spring Boot application
+2. **postgres-db** — PostgreSQL database
+
+#### docker-compose.yml Location
+
+```
+docker-compose.yml
+```
+
+#### docker-compose.yml
+
+```yaml
+version: '3.9'
+
+services:
+
+  postgres-db:
+    image: postgres:15
+    container_name: postgres-db
+    environment:
+      POSTGRES_DB: paymentdb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  payment-service:
+    build:
+      context: ./app/payment-service
+    container_name: payment-service
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:postgresql://postgres-db:5432/paymentdb
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+
+volumes:
+  postgres_data:
+```
+
+### 8.3 Container Networking
+
+Docker Compose automatically creates an isolated network for all services.
+
+This allows containers to communicate using **service names as hostnames**.
+
+Example:
+
+```
+jdbc:postgresql://postgres-db:5432/paymentdb
+```
+
+Here:
+
+- `postgres-db` is the service name
+- Docker resolves it to the correct container IP address
+
+This removes the need for manual network configuration.
+
+### 8.4 Database Persistence with Volumes
+
+PostgreSQL stores database files inside the container path:
+
+```
+/var/lib/postgresql/data
+```
+
+A Docker **named volume** is mounted to preserve this data.
+
+```
+volumes:
+  postgres_data:
+```
+
+This ensures:
+
+- Data survives container restarts
+- Database state is preserved
+- Application data is not lost
+
+Without volumes, containers would lose all data when restarted.
+
+### 8.5 Environment-Based Configuration
+
+The application uses environment variables for database configuration.
+
+Inside `application.properties`:
+
+```properties
+spring.datasource.url=${DB_URL}
+spring.datasource.username=${DB_USERNAME}
+spring.datasource.password=${DB_PASSWORD}
+```
+
+Docker Compose injects these variables at runtime.
+
+This approach follows **12-Factor App principles** and enables:
+
+- Environment portability
+- Secure configuration management
+- Separation of config from code
+
+### 8.6 Running the Multi-Container System
+
+From the project root directory:
+
+```bash
+docker compose up --build
+```
+
+This command will:
+
+1. Build the Spring Boot container image
+2. Start the PostgreSQL container
+3. Wait for database readiness
+4. Start the application container
+5. Establish container networking
+
+Successful startup logs will show:
+
+```
+Tomcat started on port 8080
+Started PaymentServiceApplication
+```
+
+### 8.7 API Validation in Containerized Environment
+
+Once containers are running, the API can be tested from the host machine.
+
+#### Create Payment
+
+```bash
+curl -X POST http://localhost:8080/payments \
+-H "Content-Type: application/json" \
+-d '{"amount":200,"currency":"USD","reference":"DOCKER-1","customerId":"CUST-DOCKER"}'
+```
+
+![CREATE PAYMENT](./docs/Images/6.Create_Payment_json.png)
+
+Response:
+
+```json
+{
+  "id": "6bf524cc-6d9f-4153-8bc8-d1aea3b2fa20",
+  "amount": 200,
+  "currency": "USD",
+  "reference": "DOCKER-1",
+  "customerId": "CUST-DOCKER",
+  "status": "SUCCESS",
+  "createdAt": "...",
+  "updatedAt": "..."
+}
+```
+
+### 8.8 PostgreSQL Data Verification
+
+To verify that data is stored inside PostgreSQL:
+
+Enter the database container:
+
+```bash
+docker exec -it postgres-db psql -U postgres -d paymentdb
+```
+
+Query the payments table:
+
+```sql
+SELECT * FROM payments;
+```
+
+![PAYMENT STATUS](./docs/Images/7.payments_json.png)
+
+
+Query the status history:
+
+```sql
+SELECT * FROM payment_status_history;
+```
+
+![PAYMENT_STATUS_HISTORY](./docs/Images/8.payment_status_history.json.png)
+
+This confirms:
+
+- PostgreSQL persistence works
+- Application successfully writes to the containerized database
+- Payment lifecycle history is correctly stored
+
+### 8.9 Containerization Validation Summary
+
+At the end of this stage, the system supports:
+
+- Containerized Spring Boot application
+- Containerized PostgreSQL database
+- Docker Compose orchestration
+- Service networking
+- Health-based startup ordering
+- Persistent database storage
+- Environment-based configuration
+
+This establishes a production-style foundation before introducing Kubernetes deployment.

@@ -931,3 +931,631 @@ At the end of this stage, the system supports:
 - Environment-based configuration
 
 This establishes a production-style foundation before introducing Kubernetes deployment.
+
+## 9. Kubernetes Deployment (Kind)
+
+After validating the application using Docker Compose, the next step is deploying the system to a Kubernetes environment.
+
+For local Kubernetes orchestration, **Kind (Kubernetes in Docker)** is used. Kind runs a fully functional Kubernetes cluster inside Docker containers, making it suitable for development and testing.
+
+This stage introduces:
+
+- Kubernetes cluster creation
+- Container image loading into Kind
+- Kubernetes manifests for application deployment
+- Service exposure inside the cluster
+- Pod orchestration and lifecycle management
+
+This simulates how applications are deployed and managed in real production Kubernetes environments.
+
+### 9.1 Creating the Kind Cluster
+
+A local Kubernetes cluster is created using Kind.
+
+Command:
+
+```bash
+kind create cluster --name devops-platform
+```
+
+This command initializes a Kubernetes control-plane node running inside Docker.
+
+**Expected output:**
+
+![create cluster --name](./docs/Images/9.create%20cluster%20--name.png)
+
+Then Verify the Cluster
+
+Run:
+
+```bash
+kubectl get nodes
+```
+
+![kubectl get nodes](./docs/Images/10.kind_cluster_nodes.png)
+
+### 9.2 Building the Application Image for Kubernetes
+
+Before deploying the application to Kubernetes, the container image must be built locally.
+
+Navigate to the project root directory and build the image using Docker.
+
+```bash
+docker build -t payment-service:1.0 ./app/payment-service
+```
+
+![Building the Application Image](./docs/Images/11.docker%20build%20-t%20payment.png)
+
+This command performs the following:
+
+- Builds the application container image using the Dockerfile
+- Tags the image as `payment-service:1.0`
+- Stores the image in the local Docker image registry
+
+Verify the image was created:
+
+```bash
+docker images | grep payment-service
+```
+
+Expected output:
+
+![Verify the image](./docs/Images/12.docker_image_built.png)
+
+This confirms the container image is ready to be deployed.
+
+### 9.3 Loading the Image into the Kind Cluster
+
+Kind clusters run inside Docker containers. Because of this, Kubernetes nodes cannot directly access images stored on the host machine.
+
+To make the application image available inside the Kind cluster, it must be manually loaded.
+
+Command:
+
+```bash
+kind load docker-image payment-service:1.0 --name devops-platform
+```
+
+![Loading the Image into the Kind Cluster](./docs/Images/13.kind_image_loaded.png)
+
+This command transfers the locally built Docker image into the Kind cluster node.
+
+Once loaded, Kubernetes can use the image when creating Pods and Deployments.
+
+### 9.4 Kubernetes Manifest Structure
+
+Kubernetes resources are defined using YAML manifests.
+
+For this project, all Kubernetes configuration files are stored inside a dedicated `k8s` directory.
+
+From your project root:
+
+```bash
+mkdir k8s
+```
+
+Your project structure will now look like:
+
+```
+Local-DevOps-Production-Platform
+│
+├── app/
+├── docker-compose.yml
+├──k8s/
+    app-deployment.yaml
+    app-service.yaml
+└── README.md
+```
+
+These manifests define how the application is deployed and exposed inside the Kubernetes cluster.
+
+**Now We Create the First Manifest**
+
+Inside the new folder:
+
+```bash
+cd k8s
+```
+
+Create the deployment file:
+
+```bash
+nano app-deployment.yaml
+```
+
+Paste this.
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: payment-service
+  template:
+    metadata:
+      labels:
+        app: payment-service
+    spec:
+      containers:
+        - name: payment-service
+          image: payment-service:1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: docker
+            - name: DB_URL
+              value: jdbc:postgresql://postgres:5432/paymentdb
+            - name: DB_USERNAME
+              value: postgres
+            - name: DB_PASSWORD
+              value: postgres
+
+```
+
+**What This Deployment Does**
+
+This manifest tells Kubernetes:
+
+* run **1 replica**
+* start container **payment-service**
+* use image **payment-service:1.0**
+* expose port **8080**
+
+Kubernetes will create a **Pod** running your container.
+
+### 9.5 Application Deployment Manifest
+
+To run the application inside the Kubernetes cluster, a **Deployment** resource is created.
+
+A Deployment ensures that the desired number of application Pods are running and automatically replaces failed Pods when necessary. It also enables scaling and rolling updates in production environments.
+
+The deployment configuration is defined in the file:
+
+```
+k8s/app-deployment.yaml
+```
+
+#### Deployment Manifest
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: payment-service
+  template:
+    metadata:
+      labels:
+        app: payment-service
+    spec:
+      containers:
+        - name: payment-service
+          image: payment-service:1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: docker
+            - name: DB_URL
+              value: jdbc:postgresql://postgres:5432/paymentdb
+            - name: DB_USERNAME
+              value: postgres
+            - name: DB_PASSWORD
+              value: postgres
+
+```
+
+#### Deployment Configuration Explanation
+
+| Field                      | Description                                                        |
+| -------------------------- | ------------------------------------------------------------------ |
+| `apiVersion`               | Specifies the Kubernetes API version used for Deployment resources |
+| `kind`                     | Defines the resource type as a Deployment                          |
+| `metadata.name`            | Unique name for the Deployment inside the cluster                  |
+| `replicas`                 | Number of application instances Kubernetes should maintain         |
+| `selector.matchLabels`     | Identifies which Pods belong to this Deployment                    |
+| `template.metadata.labels` | Labels assigned to Pods created by the Deployment                  |
+| `containers.name`          | Logical name of the container                                      |
+| `containers.image`         | Container image loaded into the Kind cluster                       |
+| `containerPort`            | Port exposed by the application container                          |
+
+The container image `payment-service:1.0` was previously loaded into the Kind cluster using the command:
+
+```bash
+kind load docker-image payment-service:1.0 --name devops-platform
+```
+
+This allows Kubernetes to start the application without pulling the image from an external container registry.
+
+#### Deploying the Application
+
+To create the Deployment inside the Kubernetes cluster, run:
+
+```bash
+kubectl apply -f k8s/app-deployment.yaml
+```
+
+Successful output:
+
+```
+deployment.apps/payment-service created
+```
+
+#### Verifying the Deployment
+
+Check the running Pods:
+
+```bash
+kubectl get pods
+```
+
+![Deploying and Verifying the Deployment](./docs/Images/14.kubernetes_pods_running.png)
+
+This confirms that Kubernetes successfully created a Pod running the `payment-service` container.
+
+#### Deployment Validation
+
+To monitor the deployment status:
+
+```bash
+kubectl get deployments
+```
+
+Expected output:
+
+![Deployment Validation](./docs/Images/15.kubectl_get_%20deployments.png)
+
+This indicates that the application deployment is healthy and running inside the Kubernetes cluster.
+
+#### PostgreSQL Deployment
+
+The payment service requires a PostgreSQL database for persistent storage.  
+To provide this dependency inside the Kubernetes cluster, PostgreSQL is deployed as a separate Deployment resource.
+
+Deployment file location:
+
+```
+k8s/postgres-deployment.yaml
+```
+
+#### PostgreSQL Deployment Manifest
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_DB
+          value: paymentdb
+        - name: POSTGRES_USER
+          value: postgres
+        - name: POSTGRES_PASSWORD
+          value: postgres
+```
+
+#### Deployment Explanation
+
+| Field               | Description                                    |
+| ------------------- | ---------------------------------------------- |
+| `Deployment`        | Ensures PostgreSQL pod is always running       |
+| `replicas`          | Specifies one database instance                |
+| `image`             | Official PostgreSQL container image            |
+| `containerPort`     | Database port exposed inside the cluster       |
+| `POSTGRES_DB`       | Database name automatically created at startup |
+| `POSTGRES_USER`     | Database username                              |
+| `POSTGRES_PASSWORD` | Database password                              |
+
+#### Deploy PostgreSQL Database
+
+Deploy the PostgreSQL database to the Kubernetes cluster:
+
+```bash
+kubectl get deployments
+```
+
+Verify the deployment:
+
+```bash
+kubectl get pods
+```
+
+This confirms that the **PostgreSQL database** is running inside the Kubernetes cluster.
+
+### 9.6 PostgreSQL Service
+
+To allow other pods to communicate with PostgreSQL, create a Kubernetes **Service**.
+
+Service file location:
+
+```bash
+k8s/postgres-service.yaml
+```
+
+#### PostgreSQL Service Manifest
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+spec:
+  selector:
+    app: postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+```
+#### Why This Service Is Required
+
+Kubernetes services provide **stable networking endpoints** for pods.
+
+The service name **postgres** becomes an internal DNS entry inside the cluster.
+
+Applications connect to the database using:
+
+```bash
+postgres:5432
+```
+
+Database connection string:
+
+```bash
+jdbc:postgresql://postgres:5432/paymentdb
+```
+
+Deploy the service:
+
+```bash
+kubectl apply -f k8s/postgres-service.yaml
+```
+
+### 9.7 Kubernetes Architecture
+
+```
+Kubernetes Cluster
+│
+├── postgres (Deployment + Service)
+│
+└── payment-service (Deployment)
+```
+
+Pods communicate internally using:
+
+```
+postgres:5432
+```
+
+#### Verification
+
+Check that both pods are running:
+
+```bash
+kubectl get pods
+```
+
+Expected output:
+
+![Verification Kubernetes Cluster](./docs/Images/16.Kubernetes_Cluster_kubectl_get_pods.png)
+
+### 9.8 Application Service (Expose API)
+
+Kubernetes Pods are not directly accessible from outside the cluster.  
+To expose the application, a **Service** resource is created.
+
+The service acts as a stable network endpoint that forwards external traffic to the application Pods.
+
+Service file location:
+
+```
+k8s/app-service.yaml
+```
+
+#### Application Service Manifest
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: payment-service
+spec:
+  type: NodePort
+  selector:
+    app: payment-service
+  ports:
+  - port: 8080
+    targetPort: 8080
+    nodePort: 30007
+```
+
+#### Service Configuration Explanation
+
+| Field | Description |
+|------|-------------|
+| `type: NodePort` | Exposes the service outside the cluster |
+| `selector` | Routes traffic to Pods labeled `payment-service` |
+| `port` | Service port inside the cluster |
+| `targetPort` | Container port inside the Pod |
+| `nodePort` | External port used to access the application |
+
+#### Deploy the Service
+
+Create the service with:
+
+```bash
+kubectl apply -f k8s/app-service.yaml
+```
+
+Expected output:
+
+```
+service/payment-service created
+```
+
+#### Verify the Service
+
+Run:
+
+```bash
+kubectl get services
+```
+
+Output:
+
+![VVerify the Service](./docs/Images/17.Kubectl_get_service.png)
+
+#Good job drafting it, sir. The structure is already good — we just need to **polish it to match professional README standards**, fix small inconsistencies, and improve clarity.
+
+### 9.9 Accessing the Application
+
+For Kind-based Kubernetes clusters, NodePort services are not directly exposed on the host machine because the Kubernetes node itself runs inside a Docker container.
+
+To access the application from the local machine, **port forwarding** is used. This forwards traffic from the host to the Kubernetes Service inside the cluster.
+
+Run the following command:
+
+```bash
+kubectl port-forward service/payment-service 8080:8080
+```
+
+Expected output:
+
+```
+Forwarding from 127.0.0.1:8080 -> 8080
+Forwarding from [::1]:8080 -> 8080
+```
+
+Once the port forwarding session is active, the application becomes accessible locally at:
+
+```
+http://localhost:8080
+```
+
+### 9.10 API Validation
+
+After exposing the service, the API can be tested to verify that the Kubernetes deployment is functioning correctly.
+
+Run the following request:
+
+```bash
+curl -X POST http://localhost:8080/payments \
+-H "Content-Type: application/json" \
+-d '{"amount":500,"currency":"USD","reference":"K8S-TEST-2","customerId":"CUST-K8S"}'
+```
+
+Response:
+
+```json
+{
+  "id": "UUID",
+  "amount": 500,
+  "currency": "USD",
+  "reference": "K8S-TEST-2",
+  "customerId": "CUST-K8S",
+  "status": "SUCCESS"
+}
+```
+
+This confirms that:
+
+* The Kubernetes **Service is correctly routing traffic to the application Pod**
+* The **Spring Boot API is operational inside the cluster**
+* The application successfully **communicates with the PostgreSQL database**
+* The full request lifecycle executes correctly within the Kubernetes environment
+
+This completes the validation of the application deployment inside the Kind-based Kubernetes cluster.
+
+Good idea, sir. A **final architecture subsection** makes your README look much more professional and helps readers quickly understand the system you built. It also strengthens the project for recruiters.
+
+Add this directly **after Section 9.10**.
+
+---
+
+## 9.11 Kubernetes Architecture Overview
+
+The application is deployed inside a Kubernetes cluster created using **Kind (Kubernetes in Docker)**.
+The architecture consists of multiple Kubernetes resources working together to run and expose the payment service.
+
+### System Architecture
+
+```
+Client
+   │
+   │  HTTP Request
+   ▼
+kubectl port-forward
+   │
+   ▼
+Kubernetes Service (payment-service)
+   │
+   ▼
+Payment-Service Pod
+(Spring Boot Application)
+   │
+   │ JDBC Connection
+   ▼
+Kubernetes Service (postgres)
+   │
+   ▼
+PostgreSQL Pod
+(Database)
+```
+
+### Component Breakdown
+
+| Component                        | Description                                                                |
+| -------------------------------- | -------------------------------------------------------------------------- |
+| **Kind Cluster**                 | Local Kubernetes cluster running inside Docker                             |
+| **Deployment (payment-service)** | Manages the lifecycle of the Spring Boot application Pod                   |
+| **Service (payment-service)**    | Exposes the application inside the cluster and allows port-forward access  |
+| **Deployment (postgres)**        | Runs the PostgreSQL database container                                     |
+| **Service (postgres)**           | Provides a stable DNS endpoint (`postgres:5432`) for database connectivity |
+| **Pod Networking**               | Enables internal communication between application and database Pods       |
+
+### Internal Service Communication
+
+Kubernetes services provide **built-in DNS resolution**, allowing the application to connect to PostgreSQL using the service name:
+
+```
+jdbc:postgresql://postgres:5432/paymentdb
+```
+
+This eliminates the need for fixed IP addresses and enables dynamic service discovery within the cluster.
+
+#### Deployment Outcome
+
+At the end of this stage, the platform successfully demonstrates:
+
+* Containerized application deployment
+* Kubernetes Pod orchestration
+* Internal service networking
+* Stateful database connectivity
+* Local cluster exposure using port-forwarding
+
+This completes the Kubernetes deployment stage of the project and prepares the platform for **CI/CD automation and production-grade DevOps workflows**.

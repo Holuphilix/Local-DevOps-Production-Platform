@@ -1491,12 +1491,6 @@ This confirms that:
 
 This completes the validation of the application deployment inside the Kind-based Kubernetes cluster.
 
-Good idea, sir. A **final architecture subsection** makes your README look much more professional and helps readers quickly understand the system you built. It also strengthens the project for recruiters.
-
-Add this directly **after Section 9.10**.
-
----
-
 ## 9.11 Kubernetes Architecture Overview
 
 The application is deployed inside a Kubernetes cluster created using **Kind (Kubernetes in Docker)**.
@@ -1559,3 +1553,67 @@ At the end of this stage, the platform successfully demonstrates:
 * Local cluster exposure using port-forwarding
 
 This completes the Kubernetes deployment stage of the project and prepares the platform for **CI/CD automation and production-grade DevOps workflows**.
+
+## 10. CI/CD Pipeline
+
+To automate build and containerization processes, a CI/CD pipeline is implemented using GitHub Actions.
+
+The pipeline automatically triggers whenever code is pushed to the `main` branch.
+
+Pipeline stages include:
+
+- Source code checkout
+- Java environment setup
+- Application build using Maven
+- Docker image build
+- Docker image push to Docker Hub
+
+Pipeline configuration location:
+
+**.github/workflows/ci-cd-pipeline.yml:**
+
+```yaml
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Build application
+        run: |
+          cd app/payment-service
+          mvn clean package -DskipTests
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+      - name: Build Docker image
+        run: |
+          docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/payment-service:latest ./app/payment-service
+
+      - name: Push Docker image
+        run: |
+          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/payment-service:latest
+```
+
+This automation ensures that every code change is validated, built, and packaged consistently without manual intervention.

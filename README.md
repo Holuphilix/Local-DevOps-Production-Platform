@@ -1679,3 +1679,111 @@ payment-service:4bfa1c3
 * Enables **easy rollback** to previous versions
 * Ensures **reproducible deployments**
 * Improves **traceability between source code commits and container images**
+
+## Section 11 — Security Scanning
+
+To enhance security within the CI/CD pipeline, container vulnerability scanning is integrated using **Trivy**.
+
+Trivy scans the Docker image for known vulnerabilities before the image is pushed to the container registry.
+
+### Vulnerability Scan Scope
+
+The scan checks for:
+
+- Operating system vulnerabilities
+- Application dependency vulnerabilities
+- Known CVEs in container images
+
+### Pipeline Integration
+
+During the CI/CD pipeline execution, Trivy analyzes the built Docker image:
+
+```
+docker image → vulnerability scan → push to registry
+```
+
+The scan focuses on high-risk vulnerabilities:
+
+- CRITICAL
+- HIGH
+
+This ensures potential security risks are detected early in the development lifecycle.
+
+#### 11.1 Update the Pipeline
+
+Open your workflow file:
+
+```bash
+nano .github/workflows/ci-cd-pipeline.yml
+```
+
+Add the **Trivy scan step** after the Docker image build.
+
+```yaml
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Build application
+        run: |
+          cd app/payment-service
+          mvn clean package -DskipTests
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+      - name: Build Docker image
+        run: |
+          docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/payment-service:${{ github.sha }} ./app/payment-service
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@0.20.0
+        with:
+          image-ref: ${{ secrets.DOCKER_HUB_USERNAME }}/payment-service:${{ github.sha }}
+          format: table
+          exit-code: 0
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Push Docker image
+        run: |
+          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/payment-service:${{ github.sha }}
+```
+#### 11.2 Commit the Security Update
+
+Run:
+
+```bash
+git add .
+git commit -m "Add Trivy container vulnerability scanning to CI pipeline"
+git push
+```
+### Benefits
+
+- Improves container security posture
+- Detects vulnerabilities before deployment
+- Aligns with DevSecOps practices
+- Helps maintain secure software supply chains

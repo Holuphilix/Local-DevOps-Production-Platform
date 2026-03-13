@@ -18,7 +18,7 @@ jobs:
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
+          distribution: temurin
           java-version: '17'
 
       - name: Build application
@@ -34,8 +34,8 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/payment-service:latest ./app/payment-service
+          docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/payment-service:${{ github.sha }} ./app/payment-service
 
       - name: Push Docker image
         run: |
-          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/payment-service:latest
+          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/payment-service:${{ github.sha }}

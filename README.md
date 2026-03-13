@@ -1428,7 +1428,7 @@ kubectl get services
 
 Output:
 
-![VVerify the Service](./docs/Images/17.Kubectl_get_service.png)
+![Verify the Service](./docs/Images/17.Kubectl_get_service.png)
 
 #Good job drafting it, sir. The structure is already good — we just need to **polish it to match professional README standards**, fix small inconsistencies, and improve clarity.
 
@@ -1553,24 +1553,33 @@ At the end of this stage, the platform successfully demonstrates:
 * Local cluster exposure using port-forwarding
 
 This completes the Kubernetes deployment stage of the project and prepares the platform for **CI/CD automation and production-grade DevOps workflows**.
+Sir, your section is already strong. I’ve refined it to sound **more professional, clearer, and more consistent with high-quality GitHub README standards** while keeping everything easy to paste directly into your file.
 
 ## 10. CI/CD Pipeline
 
-To automate build and containerization processes, a CI/CD pipeline is implemented using GitHub Actions.
+To automate the build and containerization process, a **Continuous Integration and Continuous Deployment (CI/CD)** pipeline is implemented using **GitHub Actions**.
 
-The pipeline automatically triggers whenever code is pushed to the `main` branch.
+The pipeline is automatically triggered whenever code is pushed to the `main` branch. This ensures that every change to the codebase is validated, built, and packaged consistently without manual intervention.
 
-Pipeline stages include:
+### Pipeline Stages
 
-- Source code checkout
-- Java environment setup
-- Application build using Maven
-- Docker image build
-- Docker image push to Docker Hub
+The pipeline performs the following stages:
 
-Pipeline configuration location:
+* Source code checkout
+* Java environment setup
+* Application build using Maven
+* Docker image build
+* Docker image push to Docker Hub
 
-**.github/workflows/ci-cd-pipeline.yml:**
+### Pipeline Configuration
+
+The workflow configuration file is located at:
+
+```
+.github/workflows/ci-cd-pipeline.yml
+```
+
+### GitHub Actions Workflow
 
 ```yaml
 name: CI/CD Pipeline
@@ -1593,7 +1602,7 @@ jobs:
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
+          distribution: temurin
           java-version: '17'
 
       - name: Build application
@@ -1609,11 +1618,64 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/payment-service:latest ./app/payment-service
+          docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/payment-service:${{ github.sha }} ./app/payment-service
 
       - name: Push Docker image
         run: |
-          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/payment-service:latest
+          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/payment-service:${{ github.sha }}
 ```
 
-This automation ensures that every code change is validated, built, and packaged consistently without manual intervention.
+### CI/CD Pipeline Execution
+
+The following screenshot shows a successful CI/CD pipeline run in GitHub Actions.
+
+![CI/CD Pipeline Build](./docs/Images/18.CI_CD_Pipeline.png)
+
+### 10.1 Pipeline Workflow
+
+When code is pushed to the `main` branch, the pipeline automatically executes the following steps.
+
+#### Source Checkout
+
+The pipeline retrieves the latest version of the source code from the GitHub repository using the `actions/checkout` action.
+
+#### Java Environment Setup
+
+Java 17 is installed using `actions/setup-java` to ensure compatibility with the **Spring Boot** application.
+
+#### Application Build
+
+The application is compiled and packaged using **Maven**:
+
+```bash
+mvn clean package -DskipTests
+```
+
+This process generates the executable **Spring Boot JAR** file required to run the application.
+
+#### Docker Image Build
+
+A Docker image containing the packaged application is built using the project's `Dockerfile`.
+
+#### Docker Image Push
+
+After the image is successfully built, it is pushed to **Docker Hub**, making it available for deployment in containerized environments.
+
+This process ensures that the latest version of the application is always stored in the container registry and ready for deployment.
+
+### 10.2 Image Versioning Strategy
+
+To improve traceability and support reliable deployments, Docker images can be tagged using the **Git commit SHA** generated during the pipeline execution.
+
+Example image tag:
+
+```
+payment-service:4bfa1c3
+```
+
+#### Benefits of This Strategy
+
+* Each build produces a **uniquely identifiable image**
+* Enables **easy rollback** to previous versions
+* Ensures **reproducible deployments**
+* Improves **traceability between source code commits and container images**

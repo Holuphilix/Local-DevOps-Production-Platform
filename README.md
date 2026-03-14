@@ -1787,3 +1787,117 @@ git push
 - Detects vulnerabilities before deployment
 - Aligns with DevSecOps practices
 - Helps maintain secure software supply chains
+
+## 12. Monitoring & Observability
+
+To ensure the reliability and health of the application in a Kubernetes environment, monitoring and observability mechanisms are integrated using **Spring Boot Actuator** and **Kubernetes health probes**.
+
+These mechanisms allow Kubernetes to automatically detect unhealthy containers and take corrective actions such as restarting pods or temporarily removing them from service routing.
+
+### 12.1 Spring Boot Actuator Health Endpoints
+
+Spring Boot Actuator exposes operational endpoints that provide insights into the application’s health and runtime status.
+
+Key endpoints include:
+
+```
+/actuator/health
+/actuator/health/liveness
+/actuator/health/readiness
+```
+
+Example health check:
+
+```bash
+curl http://localhost:8080/actuator/health
+```
+
+Response:
+
+```json
+{
+  "status": "UP",
+  "groups": [
+    "liveness",
+    "readiness"
+  ]
+}
+```
+
+These endpoints enable external systems such as Kubernetes to verify whether the application is running correctly.
+
+### 12.2 Kubernetes Liveness Probe
+
+The **liveness probe** checks whether the application process is still running.
+
+If the probe fails, Kubernetes automatically **restarts the container** to recover from failure conditions.
+
+Example scenarios where liveness probes help:
+
+* Application deadlocks
+* Infinite loops
+* Runtime crashes
+
+Configuration used in the deployment manifest:
+
+```yaml
+livenessProbe:
+  httpGet:
+    path: /actuator/health/liveness
+    port: 8080
+  initialDelaySeconds: 60
+  periodSeconds: 10
+```
+
+### 12.3 Kubernetes Readiness Probe
+
+The **readiness probe** determines whether the application is ready to serve incoming traffic.
+
+If the readiness probe fails, Kubernetes removes the pod from the service load balancer until the application becomes healthy again.
+
+Common situations include:
+
+* Application startup in progress
+* Database connection unavailable
+* Dependency services not ready
+
+Configuration:
+
+```yaml
+readinessProbe:
+  httpGet:
+    path: /actuator/health/readiness
+    port: 8080
+  initialDelaySeconds: 60
+  periodSeconds: 5
+```
+
+### 12.4 Resource Management
+
+To ensure efficient cluster resource usage, CPU and memory requests and limits are defined for the application container.
+
+Resource configuration:
+
+```yaml
+resources:
+  requests:
+    memory: "256Mi"
+    cpu: "200m"
+  limits:
+    memory: "512Mi"
+    cpu: "500m"
+```
+
+Resource requests guarantee that Kubernetes reserves the required resources for the container, while limits prevent the container from consuming excessive resources that could affect other workloads in the cluster.
+
+### 12.5 Observability Benefits
+
+The monitoring and observability configuration provides several advantages:
+
+* Automatic container recovery
+* Improved system stability
+* Controlled resource consumption
+* Early detection of application failures
+* Reliable service availability in Kubernetes
+
+These mechanisms help maintain application resilience in production environments.

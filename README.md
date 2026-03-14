@@ -1966,3 +1966,13 @@ These measures would strengthen the security posture of the platform.
 ### Summary
 
 These improvements would transform the platform into a fully production-ready DevOps ecosystem capable of supporting scalable and secure application deployments.
+
+## 14. Author
+
+**Philip Oluwaseyi Oludolamu**  
+DevOps Engineer | Cloud Infrastructure | CI/CD Automation
+
+📧 Email: oluphilix@gmail.com  
+📱 Phone: +90 533 876 3067  
+🔗 LinkedIn: https://www.linkedin.com/in/holuphilix  
+💻 GitHub: https://github.com/Holuphilix
